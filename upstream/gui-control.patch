@@ -1,0 +1,332 @@
+diff --git a/app/meson.build b/app/meson.build
+index 1c2021a..deb6ae9 100644
+--- a/app/meson.build
++++ b/app/meson.build
+@@ -83,6 +83,7 @@ conf = configuration_data()
+ if host_machine.system() == 'windows'
+     windows = import('windows')
+     src += [
++        'src/studio_control.c',
+         'src/util/command.c',
+         'src/sys/win/file.c',
+         'src/sys/win/process.c',
+diff --git a/app/src/events.h b/app/src/events.h
+index 9f42e29..7a7b219 100644
+--- a/app/src/events.h
++++ b/app/src/events.h
+@@ -22,6 +22,7 @@ enum {
+     SC_EVENT_AOA_OPEN_ERROR,
+     SC_EVENT_DISCONNECTED_ICON_LOADED,
+     SC_EVENT_DISCONNECTED_TIMEOUT,
++    SC_EVENT_STUDIO_SHORTCUT,
+ };
+ 
+ bool
+diff --git a/app/src/input_manager.c b/app/src/input_manager.c
+index af6ef90..cd20425 100644
+--- a/app/src/input_manager.c
++++ b/app/src/input_manager.c
+@@ -412,7 +412,8 @@ inverse_point(struct sc_point point, struct sc_size size,
+ 
+ static void
+ sc_input_manager_process_key(struct sc_input_manager *im,
+-                             const SDL_KeyboardEvent *event) {
++                             const SDL_KeyboardEvent *event,
++                             unsigned studio_clicks) {
+     // some key events do not interact with the device, so process the event
+     // even if control is disabled
+ 
+@@ -434,10 +435,11 @@ sc_input_manager_process_key(struct sc_input_manager *im,
+     // The second condition is necessary to ignore the release of the modifier
+     // key (because in this case mod is 0).
+     uint16_t mods = im->sdl_shortcut_mods;
+-    bool is_shortcut = sc_shortcut_mods_is_shortcut_mod(mods, mod)
++    bool is_shortcut = studio_clicks
++                    || sc_shortcut_mods_is_shortcut_mod(mods, mod)
+                     || sc_shortcut_mods_is_shortcut_key(mods, sdl_keycode);
+ 
+-    if (down && !repeat && !disconnected) {
++    if (!studio_clicks && down && !repeat && !disconnected) {
+         if (sdl_keycode == im->last_keycode && mod == im->last_mod) {
+             ++im->key_repeat;
+         } else {
+@@ -624,7 +626,8 @@ sc_input_manager_process_key(struct sc_input_manager *im,
+                     if (!repeat && down && !paused) {
+                         if (shift) {
+                             collapse_panels(im);
+-                        } else if (im->key_repeat == 0) {
++                        } else if (studio_clicks ? studio_clicks == 1
++                                                 : im->key_repeat == 0) {
+                             expand_notification_panel(im);
+                         } else {
+                             expand_settings_panel(im);
+@@ -1163,6 +1166,59 @@ sc_input_manager_on_device_disconnected(struct sc_input_manager *im) {
+     }
+ }
+ 
++static void
++sc_input_manager_studio_shortcut(struct sc_input_manager *im, int command) {
++    static const struct {
++        SDL_Keycode key;
++        bool shift;
++    } shortcuts[128] = {
++        ['h'] = { SDLK_H, false },
++        ['b'] = { SDLK_B, false },
++        ['s'] = { SDLK_S, false },
++        ['m'] = { SDLK_M, false },
++        ['p'] = { SDLK_P, false },
++        ['o'] = { SDLK_O, false },
++        ['O'] = { SDLK_O, true },
++        ['n'] = { SDLK_N, false },
++        ['j'] = { SDLK_N, false },
++        ['N'] = { SDLK_N, true },
++        ['r'] = { SDLK_R, false },
++        ['+'] = { SDLK_UP, false },
++        ['-'] = { SDLK_DOWN, false },
++        ['f'] = { SDLK_F, false },
++        ['['] = { SDLK_LEFT, false },
++        [']'] = { SDLK_RIGHT, false },
++        ['{'] = { SDLK_LEFT, true },
++        ['}'] = { SDLK_DOWN, true },
++        ['z'] = { SDLK_Z, false },
++        ['Z'] = { SDLK_Z, true },
++        ['R'] = { SDLK_R, true },
++        ['g'] = { SDLK_G, false },
++        ['w'] = { SDLK_W, false },
++        ['i'] = { SDLK_I, false },
++        ['c'] = { SDLK_C, false },
++        ['x'] = { SDLK_X, false },
++        ['v'] = { SDLK_V, false },
++        ['V'] = { SDLK_V, true },
++        ['k'] = { SDLK_K, false },
++        ['t'] = { SDLK_T, false },
++        ['T'] = { SDLK_T, true },
++    };
++    if (command < 0 || command >= 128 || !shortcuts[command].key) {
++        return;
++    }
++
++    SDL_KeyboardEvent event = {
++        .type = SDL_EVENT_KEY_DOWN,
++        .key = shortcuts[command].key,
++        .mod = shortcuts[command].shift ? SDL_KMOD_LSHIFT : SDL_KMOD_NONE,
++    };
++    unsigned clicks = command == 'j' ? 2 : 1;
++    sc_input_manager_process_key(im, &event, clicks);
++    event.type = SDL_EVENT_KEY_UP;
++    sc_input_manager_process_key(im, &event, clicks);
++}
++
+ void
+ sc_input_manager_handle_event(struct sc_input_manager *im,
+                               const SDL_Event *event) {
+@@ -1172,7 +1228,10 @@ sc_input_manager_handle_event(struct sc_input_manager *im,
+             break;
+         case SDL_EVENT_KEY_DOWN:
+         case SDL_EVENT_KEY_UP:
+-            sc_input_manager_process_key(im, &event->key);
++            sc_input_manager_process_key(im, &event->key, 0);
++            break;
++        case SC_EVENT_STUDIO_SHORTCUT:
++            sc_input_manager_studio_shortcut(im, event->user.code);
+             break;
+         case SDL_EVENT_MOUSE_MOTION:
+             sc_input_manager_process_mouse_motion(im, &event->motion);
+diff --git a/app/src/main.c b/app/src/main.c
+index 89d7829..0cc6ec4 100644
+--- a/app/src/main.c
++++ b/app/src/main.c
+@@ -21,6 +21,7 @@
+ 
+ #ifdef _WIN32
+ #include <windows.h>
++#include "studio_control.h"
+ #include "util/str.h"
+ #endif
+ 
+@@ -94,12 +95,19 @@ main_scrcpy(int argc, char *argv[]) {
+         goto net_cleanup;
+     }
+ 
++#ifdef _WIN32
++    sc_studio_control_start();
++#endif
++
+ #ifdef HAVE_USB
+     ret = args.opts.otg ? scrcpy_otg(&args.opts) : scrcpy(&args.opts);
+ #else
+     ret = scrcpy(&args.opts);
+ #endif
+ 
++#ifdef _WIN32
++    sc_studio_control_stop();
++#endif
+     sc_main_thread_destroy();
+ 
+ net_cleanup:
+diff --git a/app/src/scrcpy.c b/app/src/scrcpy.c
+index 0967e5d..ddcd994 100644
+--- a/app/src/scrcpy.c
++++ b/app/src/scrcpy.c
+@@ -12,6 +12,7 @@
+ // not needed here, but winsock2.h must never be included AFTER windows.h
+ # include <winsock2.h>
+ # include <windows.h>
++# include "studio_control.h"
+ #endif
+ 
+ #include "audio_player.h"
+@@ -1036,6 +1037,12 @@ aoa_complete:
+         }
+     }
+ 
++#ifdef _WIN32
++    if (options->window) {
++        sc_studio_control_ready();
++    }
++#endif
++
+     ret = event_loop(s, options->window);
+ 
+     // Reject all new runnables, and execute the pending ones now
+diff --git a/app/src/studio_control.c b/app/src/studio_control.c
+new file mode 100644
+index 0000000..5060cbb
+--- /dev/null
++++ b/app/src/studio_control.c
+@@ -0,0 +1,116 @@
++#include "studio_control.h"
++
++#include <stdio.h>
++#include <wchar.h>
++#include <windows.h>
++
++#include "events.h"
++#include "util/log.h"
++
++static HANDLE command_pipe;
++static HANDLE stop_event;
++static HANDLE worker;
++
++static DWORD WINAPI
++read_commands(LPVOID userdata) {
++    (void) userdata;
++    HANDLE ready = CreateEventW(NULL, TRUE, FALSE, NULL);
++    if (!ready) {
++        return 0;
++    }
++
++    HANDLE signals[] = {stop_event, ready};
++    OVERLAPPED request = { .hEvent = ready };
++    for (;;) {
++        if (WaitForSingleObject(stop_event, 0) == WAIT_OBJECT_0) {
++            break;
++        }
++
++        DWORD count;
++        unsigned char command;
++        ResetEvent(ready);
++        BOOL ok = ReadFile(command_pipe, &command, 1, &count, &request);
++        if (!ok && GetLastError() == ERROR_IO_PENDING) {
++            DWORD signal = WaitForMultipleObjects(2, signals, FALSE, INFINITE);
++            if (signal != WAIT_OBJECT_0 + 1) {
++                CancelIo(command_pipe);
++                GetOverlappedResult(command_pipe, &request, &count, TRUE);
++                break;
++            }
++            ok = GetOverlappedResult(command_pipe, &request, &count, FALSE);
++        }
++
++        if (!ok || !count || command == 0) {
++            sc_push_event(SDL_EVENT_QUIT);
++            break;
++        }
++
++        SDL_Event event = {
++            .user = { .type = SC_EVENT_STUDIO_SHORTCUT, .code = command },
++        };
++        SDL_PushEvent(&event);
++    }
++
++    CloseHandle(ready);
++    return 0;
++}
++
++void
++sc_studio_control_start(void) {
++    static const wchar_t prefix[] = L"\\\\.\\pipe\\scrcpy-studio-";
++    wchar_t path[128];
++    DWORD len = GetEnvironmentVariableW(L"SCRCPY_STUDIO_PIPE", path, 128);
++    if (!len) {
++        return;
++    }
++    if (len >= 128 || wcsncmp(path, prefix, _countof(prefix) - 1)) {
++        LOGW("Invalid scrcpy Studio control pipe");
++        return;
++    }
++
++    command_pipe = CreateFileW(path, GENERIC_READ, 0, NULL, OPEN_EXISTING,
++                               FILE_FLAG_OVERLAPPED, NULL);
++    if (command_pipe == INVALID_HANDLE_VALUE) {
++        LOGW("Could not open scrcpy Studio control pipe");
++        return;
++    }
++
++    stop_event = CreateEventW(NULL, TRUE, FALSE, NULL);
++    if (!stop_event) {
++        CloseHandle(command_pipe);
++        return;
++    }
++
++    if (SDL_Init(SDL_INIT_EVENTS)) {
++        worker = CreateThread(NULL, 0, read_commands, NULL, 0, NULL);
++        if (worker) {
++            return;
++        }
++        SDL_QuitSubSystem(SDL_INIT_EVENTS);
++    }
++
++    CloseHandle(command_pipe);
++    CloseHandle(stop_event);
++    LOGW("Could not start scrcpy Studio control channel");
++}
++
++void
++sc_studio_control_ready(void) {
++    if (worker) {
++        puts("SCRCPY_STUDIO_READY");
++    }
++}
++
++void
++sc_studio_control_stop(void) {
++    if (!worker) {
++        return;
++    }
++
++    SetEvent(stop_event);
++    WaitForSingleObject(worker, INFINITE);
++    CloseHandle(worker);
++    CloseHandle(stop_event);
++    CloseHandle(command_pipe);
++    SDL_QuitSubSystem(SDL_INIT_EVENTS);
++}
+diff --git a/app/src/studio_control.h b/app/src/studio_control.h
+new file mode 100644
+index 0000000..5d5b990
+--- /dev/null
++++ b/app/src/studio_control.h
+@@ -0,0 +1,13 @@
++#ifndef SC_STUDIO_CONTROL_H
++#define SC_STUDIO_CONTROL_H
++
++void
++sc_studio_control_start(void);
++
++void
++sc_studio_control_ready(void);
++
++void
++sc_studio_control_stop(void);
++
++#endif

@@ -1,0 +1,46 @@
+name: Build and verify Windows x64
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mingw-w64 mingw-w64-tools meson ninja-build nasm libz-mingw-w64-dev
+          sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - run: scripts/build.sh
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-x64
+          path: dist/
+
+  windows-smoke:
+    runs-on: windows-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
+        with:
+          name: windows-x64
+          path: dist
+      - name: Start EXE and check native components
+        shell: pwsh
+        run: scripts/smoke-windows.ps1 -Path dist/ScrcpyStudio-1.0.0-win-x64.exe

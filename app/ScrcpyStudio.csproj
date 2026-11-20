@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationIcon>AppIcon.ico</ApplicationIcon>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <DebugType>embedded</DebugType>
+    <Version>1.0.0</Version>
+    <Product>scrcpy Studio</Product>
+    <Description>Desktop GUI for scrcpy 5.0.1</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="../.build/options.json" LogicalName="ScrcpyStudio.Options.json" />
+    <EmbeddedResource Include="../.build/backend.zip" LogicalName="ScrcpyStudio.Backend.zip" />
+  </ItemGroup>
+</Project>
