@@ -2,14 +2,20 @@
 
 scrcpy Studio 是 Genymobile [scrcpy 5.0.1](https://github.com/Genymobile/scrcpy/releases/tag/v5.0.1) 的中文 Windows 图形界面。它包含从源码编译的 Windows 客户端、Android 服务端，以及 ADB 和桌面运行时。
 
+![连接页：设备卡片、无线调试与常用设置](docs/home-dark.png)
+
+| 参数页，浅色主题 | 会话控制，深色主题 |
+| --- | --- |
+| ![参数页](docs/video-light.png) | ![会话控制页](docs/control-dark.png) |
+
 ## 下载与启动
 
-[下载 Windows x64 EXE](https://github.com/kazewwk/scrcpy-studio/releases/latest/download/ScrcpyStudio-1.0.0-win-x64.exe) · [Release 与 SHA-256](https://github.com/kazewwk/scrcpy-studio/releases/latest)
+[下载 Windows x64 EXE](https://github.com/kazewwk/scrcpy-studio/releases/latest/download/ScrcpyStudio-2.0.0-win-x64.exe) · [Release 与 SHA-256](https://github.com/kazewwk/scrcpy-studio/releases/latest)
 
 发行包面向 Windows x64，系统兼容范围参见 [Microsoft .NET 10 的 Windows 兼容列表](https://learn.microsoft.com/dotnet/core/install/windows#supported-versions)。运行 EXE 即可，首次启动会把内置组件解包到 `%LOCALAPPDATA%\ScrcpyStudio\runtime`。常规 USB 投屏需要开启 Android 的 USB 调试，并在设备上确认授权。
 
-1. 接好 USB，在「连接」页刷新设备并选择对应序列号。无线调试可以在同一页填入手机显示的配对地址和配对码，再填入无线连接地址并连接。
-2. 点击「开始投屏」。在 scrcpy 窗口操作手机，在「会话控制」页使用主页、返回、通知栏、旋转、剪贴板、画面和相机按钮。
+1. 接好 USB，在「连接」页点击「刷新设备」，再点选要投屏的设备卡片。无线调试可以在同一页填入手机显示的配对地址和配对码，再填入无线连接地址并连接。
+2. 点击底部的「开始投屏」。在 scrcpy 窗口操作手机，在「会话控制」页使用主页、返回、通知栏、旋转、剪贴板、画面和相机按钮。
 3. 点击「停止」或关闭投屏窗口结束会话。录制期间使用「停止」可以让核心完成文件写入，运行日志会显示退出状态。
 
 ## 功能入口
@@ -25,7 +31,9 @@ scrcpy Studio 是 Genymobile [scrcpy 5.0.1](https://github.com/Genymobile/scrcpy
 | 文件与 APK | 将文件拖入投屏窗口。普通文件按「推送目录」上传，APK 会交由设备安装。 |
 | 查询与日志 | 在「连接」直接查询显示器、应用、编码器、相机和相机尺寸；在「查询与诊断」运行帮助和版本查询。 |
 
-按 `Ctrl+F` 打开参数搜索，或在任一设置页面的搜索框输入中文名称、`--参数` 或短参数即可搜索整个目录。选中条目后，右侧可以启用、填写值并查看上游说明。带可选值的参数可用裸开关，或勾选「提供参数值」。下方可以复制当前配置对应的 PowerShell 命令，配置会在下次启动时恢复。
+每个参数占一行。在右侧填写值或打开开关即可启用，填写值时开关会自动打开；点击该行可以展开语法和上游说明。带可选值的参数留空时只传递开关本身。侧栏的数字是各分组已启用的参数个数。
+
+按 `Ctrl+F` 或点击顶部的搜索框，输入中文名称、`--参数` 或短参数即可搜索整个目录。底部的启动栏始终显示当前配置对应的 PowerShell 命令，可以一键复制；配置会在下次启动时恢复。界面默认跟随 Windows 的浅色或深色应用模式，侧栏底部的按钮可以切换并记住选择。
 
 目录依据上游 `cli.c` 生成，包含 112 个 CLI 条目、17 个等价短参数别名、4 个环境变量。投屏窗口支持 [上游快捷键和鼠标手势](https://github.com/Genymobile/scrcpy/blob/v5.0.1/doc/shortcuts.md)。V4L2 参数可在目录查阅，运行需使用 Linux 客户端。具体音频、相机、OTG 与虚拟显示能力取决于 Android 版本、设备和驱动。
 
@@ -39,7 +47,9 @@ sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
 scripts/build.sh
 ```
 
-产物在 `dist/`。脚本固定 scrcpy 源码提交，应用 [会话控制补丁](upstream/gui-control.patch)，重新构建 Windows 客户端和 Android 服务端。参数目录生成时会检查上游定义的每个条目。GitHub Actions 构建后会在 Windows 环境启动 EXE、检查内置组件并执行 CLI 冒烟测试。
+产物在 `dist/`。脚本固定 scrcpy 源码提交，应用 [会话控制补丁](upstream/gui-control.patch)，重新构建 Windows 客户端和 Android 服务端。参数目录生成时会检查上游定义的每个条目。界面使用 WPF，同样在 Linux 上编译；图标由 `scripts/generate_icons.py` 从 Lucide 转换为 `app/Theme/Icons.xaml`。
+
+`ScrcpyStudio.exe --snapshot <目录>` 会用示例数据把每个页面按两种主题渲染成 PNG，上面的截图由它生成。GitHub Actions 构建后会在 Windows 环境启动 EXE、检查内置组件、执行 CLI 冒烟测试，并保存真实窗口的截屏和全部页面的渲染结果。
 
 ## 许可证
 
