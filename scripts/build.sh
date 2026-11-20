@@ -27,7 +27,8 @@ scripts/build_server.sh "$source_dir" .build/scrcpy-server
 python3 scripts/pack_runtime.py
 
 dotnet publish app/ScrcpyStudio.csproj -c Release --no-restore -o .build/publish
-asset=ScrcpyStudio-1.0.0-win-x64.exe
+version="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' app/ScrcpyStudio.csproj)"
+asset="ScrcpyStudio-$version-win-x64.exe"
 install -m 755 .build/publish/ScrcpyStudio.exe "dist/$asset"
 tar -czf dist/third-party-source.tar.gz -C "$source_dir/app/deps/work/sources" \
     ffmpeg-9.0.2.tar.xz dav1d-1.5.4.tar.xz libusb-1.0.30.tar.gz sdl-3.4.18.tar.gz

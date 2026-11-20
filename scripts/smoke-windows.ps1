@@ -1,6 +1,13 @@
-param([Parameter(Mandatory)][string] $Path)
+param(
+    [Parameter(Mandatory)][string] $Path,
+    # Receives a capture of the real window and a rendering of every page in both themes.
+    [string] $Pictures
+)
 $ErrorActionPreference = 'Stop'
-$launcher = Start-Process -FilePath (Resolve-Path $Path) -PassThru
+$exe = (Resolve-Path $Path).Path
+if ($Pictures) { $Pictures = (New-Item -ItemType Directory -Force $Pictures).FullName }
+
+$launcher = Start-Process -FilePath $exe -PassThru
 try {
     $root = Join-Path $env:LOCALAPPDATA 'ScrcpyStudio/runtime'
     $backend = $null
@@ -24,8 +31,10 @@ try {
     if (!(Test-Path (Join-Path $backend.DirectoryName 'scrcpy-server'))) {
         throw 'The extracted Android server is missing.'
     }
-    if (!(Test-Path (Join-Path $backend.DirectoryName 'LICENSES/adb-notices.txt'))) {
-        throw 'The bundled notices are missing.'
+    foreach ($notice in 'adb-notices.txt', 'Lucide.txt') {
+        if (!(Test-Path (Join-Path $backend.DirectoryName "LICENSES/$notice"))) {
+            throw "The bundled notice $notice is missing."
+        }
     }
     $version = & $backend.FullName --version | Out-String
     if ($LASTEXITCODE -ne 0 -or $version -notmatch 'scrcpy 5\.0\.1' -or $version -notmatch 'libusb') {
@@ -45,6 +54,17 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'adb version failed.' }
     & $env:ADB devices -l
     if ($LASTEXITCODE -ne 0) { throw 'adb devices failed.' }
+
+    if ($Pictures) {
+        Add-Type -AssemblyName System.Drawing, System.Windows.Forms
+        $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+        $bitmap = [System.Drawing.Bitmap]::new($screen.Width, $screen.Height)
+        $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+        $graphics.CopyFromScreen($screen.Location, [System.Drawing.Point]::Empty, $screen.Size)
+        $bitmap.Save((Join-Path $Pictures 'desktop.png'))
+        $graphics.Dispose()
+        $bitmap.Dispose()
+    }
     Write-Host 'Windows launcher, native scrcpy and bundled ADB started successfully.'
 }
 finally {
@@ -54,4 +74,19 @@ finally {
     } elseif (!$launcher.HasExited) {
         $launcher.Kill()
     }
+}
+
+if ($Pictures) {
+    $render = Start-Process -FilePath $exe -ArgumentList '--snapshot', "`"$Pictures`"" -PassThru
+    if (!$render.WaitForExit(180000)) {
+        $render.Kill()
+        throw 'Rendering the interface timed out.'
+    }
+    $pages = @(Get-ChildItem $Pictures -Filter '*-*.png')
+    if ($render.ExitCode -ne 0 -or $pages.Count -ne 12) {
+        $detail = Join-Path $Pictures 'error.txt'
+        $reason = if (Test-Path $detail) { Get-Content -Raw $detail } else { "$($pages.Count) pages" }
+        throw "The interface did not render completely (exit $($render.ExitCode)). $reason"
+    }
+    Write-Host "Rendered $($pages.Count) pages of the interface."
 }

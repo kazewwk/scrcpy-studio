@@ -50,6 +50,7 @@ def main():
         "LICENSES/dotnet.txt": net / "LICENSE.TXT",
         "LICENSES/dotnet-notices.txt": net / "THIRD-PARTY-NOTICES.TXT",
         "LICENSES/WindowsDesktop.txt": desktop / "LICENSE",
+        "LICENSES/Lucide.txt": ROOT / "app/Theme/Icons.LICENSE.txt",
         "LICENSES/third-party.md": ROOT / "THIRD_PARTY.md",
     })
     payload = {name: path.read_bytes() for name, path in files.items()}

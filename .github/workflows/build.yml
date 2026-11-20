@@ -43,6 +43,13 @@ jobs:
         with:
           name: windows-x64
           path: dist
-      - name: Start EXE and check native components
+      - name: Start EXE, check native components and render the interface
         shell: pwsh
-        run: scripts/smoke-windows.ps1 -Path dist/ScrcpyStudio-1.0.0-win-x64.exe
+        run: |
+          Set-DisplayResolution -Width 1920 -Height 1080 -Force
+          scripts/smoke-windows.ps1 -Path (Get-Item dist/ScrcpyStudio-*-win-x64.exe) -Pictures interface
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: interface
+          path: interface/
