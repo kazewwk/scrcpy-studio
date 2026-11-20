@@ -107,7 +107,7 @@ internal sealed class LaunchPlan
 {
     internal static readonly string[] Selectors = ["serial", "select-usb", "select-tcpip", "tcpip"];
     private static readonly string[] QuerySettings =
-        [.. Selectors, "port", "force-adb-forward", "tunnel-host", "tunnel-port", "verbosity", "camera-id", "camera-facing"];
+        [.. Selectors, "port", "force-adb-forward", "tunnel-host", "tunnel-port", "verbosity"];
 
     internal static Dictionary<string, string?> ForQuery(
         Dictionary<string, string?> config, string query)

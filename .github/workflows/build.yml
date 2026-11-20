@@ -25,7 +25,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends gcc-mingw-w64-x86-64-posix g++-mingw-w64-x86-64-posix mingw-w64-tools meson ninja-build nasm libz-mingw-w64-dev
-          sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+          if [[ ! -f "$ANDROID_HOME/platforms/android-36/android.jar" || ! -x "$ANDROID_HOME/build-tools/36.0.0/d8" ]]; then
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
+          fi
       - run: scripts/build.sh
       - uses: actions/upload-artifact@v7
         with:
