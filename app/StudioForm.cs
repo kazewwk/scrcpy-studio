@@ -11,6 +11,7 @@ internal sealed partial class StudioForm : Form
     private static readonly Color RailActive = Color.FromArgb(46, 68, 98);
     private static readonly Color Accent = Color.FromArgb(33, 96, 219);
     private static readonly Color Border = Color.FromArgb(209, 219, 232);
+    private static readonly string UiFace = ChineseFont();
 
     private readonly Dictionary<string, string?> _config;
     private readonly Dictionary<string, Button> _nav = new();
@@ -23,13 +24,13 @@ internal sealed partial class StudioForm : Form
     private readonly TextBox _preview = new()
     {
         ReadOnly = true, Multiline = true, Dock = DockStyle.Fill, BackColor = Color.White,
-        BorderStyle = BorderStyle.FixedSingle, Font = new Font("Consolas", 9F), ScrollBars = ScrollBars.Vertical,
+        BorderStyle = BorderStyle.FixedSingle, Font = new Font(UiFace, 9F), ScrollBars = ScrollBars.Vertical,
     };
     private readonly TextBox _log = new()
     {
         Dock = DockStyle.Fill, ReadOnly = true, Multiline = true, ScrollBars = ScrollBars.Both,
         WordWrap = false, BackColor = Color.FromArgb(24, 36, 53), ForeColor = Color.FromArgb(230, 238, 249),
-        BorderStyle = BorderStyle.None, Font = new Font("Consolas", 10F),
+        BorderStyle = BorderStyle.None, Font = new Font(UiFace, 10F),
     };
     private readonly ToolTip _tips = new() { AutoPopDelay = 10_000 };
 
@@ -52,7 +53,7 @@ internal sealed partial class StudioForm : Form
     {
         Text = "scrcpy Studio";
         Icon = Icon.ExtractAssociatedIcon(Environment.ProcessPath!);
-        Font = new Font("Segoe UI", 10F);
+        Font = new Font(UiFace, 10F);
         AutoScaleMode = AutoScaleMode.Dpi;
         StartPosition = FormStartPosition.CenterScreen;
         Size = new Size(1130, 810);
@@ -95,11 +96,19 @@ internal sealed partial class StudioForm : Form
         FormClosing += OnClosing;
     }
 
+    private static string ChineseFont()
+    {
+        using var available = new System.Drawing.Text.InstalledFontCollection();
+        var families = available.Families.Select(font => font.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        string[] preferred = ["Microsoft YaHei UI", "Noto Sans CJK SC", "Microsoft YaHei", "SimSun"];
+        return preferred.FirstOrDefault(families.Contains) ?? "Segoe UI";
+    }
+
     private static Label Caption(string text, float size = 10F, bool bold = false, bool subtle = false)
     {
         return new Label
         {
-            Text = text, AutoSize = true, Font = new Font("Segoe UI", size, bold ? FontStyle.Bold : FontStyle.Regular),
+            Text = text, AutoSize = true, Font = new Font(UiFace, size, bold ? FontStyle.Bold : FontStyle.Regular),
             ForeColor = subtle ? Muted : Ink, Margin = new Padding(0, 0, 0, 6),
         };
     }
@@ -112,7 +121,7 @@ internal sealed partial class StudioForm : Form
             FlatStyle = FlatStyle.Flat, UseVisualStyleBackColor = false,
             BackColor = primary ? Accent : Color.White,
             ForeColor = primary ? Color.White : Ink,
-            Font = new Font("Segoe UI", 9F, primary ? FontStyle.Bold : FontStyle.Regular),
+            Font = new Font(UiFace, 9F, primary ? FontStyle.Bold : FontStyle.Regular),
             Cursor = Cursors.Hand,
         };
         button.FlatAppearance.BorderColor = primary ? Accent : Border;

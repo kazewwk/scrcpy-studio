@@ -256,7 +256,7 @@ internal sealed partial class StudioForm
             Text = option.Description.ReplaceLineEndings(Environment.NewLine),
             Dock = DockStyle.Fill, Margin = Padding.Empty, ReadOnly = true, Multiline = true,
             BackColor = Canvas, ForeColor = Ink, ScrollBars = ScrollBars.Vertical,
-            BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 9F),
+            BorderStyle = BorderStyle.FixedSingle, Font = new Font(UiFace, 9F),
         };
         layout.Controls.Add(documentation, 0, 7);
         _editor.ResumeLayout();
