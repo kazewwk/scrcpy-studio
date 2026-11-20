@@ -110,6 +110,7 @@ internal sealed partial class MainWindow : Window
         _log.Copied += text => Copy(text, "日志已复制");
 
         StateChanged += (_, _) => SyncWindowState();
+        Shell.SizeChanged += (_, _) => FitSidebar();
         PreviewKeyDown += OnPreviewKeyDown;
         UpdateCounts();
         SyncTheme();
@@ -124,6 +125,16 @@ internal sealed partial class MainWindow : Window
         Name = name,
         Icon = Ui.Glyph(Sections.TryGetValue(name, out var known) ? known.Icon : "SlidersHorizontal"),
     });
+
+    /// <summary>Tightens the sidebar rows when the full list would not fit, as on a 150 % laptop screen.</summary>
+    private void FitSidebar()
+    {
+        const double chrome = 136;
+        int headers = _nav.Count(item => item.IsHeader);
+        bool compact = Shell.ActualHeight - chrome < (_nav.Count - headers) * 38 + headers * 37;
+        Resources["NavItemHeight"] = compact ? 30.0 : 36.0;
+        Resources["NavHeaderMargin"] = compact ? new Thickness(14, 9, 0, 4) : new Thickness(14, 16, 0, 6);
+    }
 
     private void UpdateCounts()
     {
